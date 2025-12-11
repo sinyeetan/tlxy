@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Fusion & Fireworks</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+        }
+
+        /* --- THE INTRO SCENE WRAPPER --- */
+        #intro-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #1a1a1a;
+            z-index: 10;
+            transition: opacity 1s ease-out;
+        }
+
+        /* Container for all image elements (movers and combined) */
+        .image-stage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        /* Common style for the moving images */
+        .mover {
+            width: 100px;
+            height: 100px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 2.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease-out;
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+            border: 3px solid white;
+            z-index: 2;
+            opacity: 1;
+        }
+
+        .mover.left {
+            left: -150px;
+            background-image: url('me.png'); /* Replace with your first image URL */
+        }
+
+        .mover.right {
+            right: -150px;
+            background-image: url('her.png'); /* Replace with your second image URL */
+        }
+
+        /* Positions when they meet */
+        .mover.meet-center-left { left: calc(50% - 105px); }
+        .mover.meet-center-right { right: calc(50% - 105px); }
+        
+        /* Fading out the individual images */
+        .mover.fade-out { opacity: 0; }
+
+
+        /* --- THE COMBINED IMAGE --- */
+        #combined-image {
+            position: absolute;
+            width: 150px; /* Slightly larger for emphasis */
+            height: 150px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 50%; /* Keep it circular */
+            background-image: url("us.png"); 
+            opacity: 0; /* Hidden initially */
+            transform: scale(0.8); /* Start slightly smaller for a "pop" effect */
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+            z-index: 3; /* On top of movers, under shockwave */
+            box-shadow: 0 0 30px rgba(255,255,255,0.5);
+            border: 5px solid white;
+        }
+        #combined-image.show { opacity: 1; transform: scale(1); }
+        #combined-image.final-stage {
+            position: fixed; /* Fix to viewport */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.3; /* Faded for fireworks */
+            transition: opacity 1s;
+            z-index: 1; /* Below fireworks */
+        }
+
+
+        /* --- THE SHOCKWAVE EXPLOSION --- */
+        #shockwave {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fff 0%, #ffeb3b 40%, transparent 70%);
+            opacity: 0;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .boom { animation: explode 0.8s ease-out forwards; }
+        @keyframes explode {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            50% { opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(30); opacity: 0; }
+        }
+
+
+        /* --- THE HEART BUTTON --- */
+        #heart-wrapper {
+    		position: absolute;
+    		top: 50%;
+    		left: 50%;
+    		/* Shift the whole wrapper group down by 25px */
+    		transform: translate(-50%, 25px); /* Adjusted from -50% to 25px for better positioning */
+    		z-index: 6; 
+    		display: flex; flex-direction: column; align-items: center;
+	}
+        #heart-btn {
+            background-color: #ff3366;
+            display: block;
+            position: relative;
+            width: 50px;
+            height: 50px;
+            transform: rotate(-45deg) scale(0);
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(255, 51, 102, 0.8);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin-top: 60px; /* Position below combined image */
+        }
+        #heart-btn::before, #heart-btn::after {
+            content: "";
+            background-color: #ff3366;
+            border-radius: 50%;
+            position: absolute;
+            width: 50px;
+            height: 50px;
+        }
+        #heart-btn::before { top: -25px; left: 0; }
+        #heart-btn::after { left: 25px; top: 0; }
+        
+        .pulse-active { animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0% { transform: rotate(-45deg) scale(1); }
+            50% { transform: rotate(-45deg) scale(1.1); }
+            100% { transform: rotate(-45deg) scale(1); }
+        }
+
+        #click-text {
+            margin-top: 10px; 
+            color: white;
+            opacity: 0;
+            font-size: 1.2rem;
+            transition: opacity 1s;
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        /* --- FIREWORKS CANVAS --- */
+        canvas { display: block; opacity: 0; transition: opacity 2s; }
+    </style>
+</head>
+<body>
+
+    <div id="intro-container">
+        <div class="image-stage">
+            <div class="mover left" id="imgLeft"></div>
+            <div class="mover right" id="imgRight"></div>
+            <div id="combined-image"></div>
+        </div>
+
+        <div id="shockwave"></div>
+
+        <div id="heart-wrapper">
+            <div id="heart-btn" onclick="startFireworks()"></div>
+            <div id="click-text">Forgive Me</div>
+        </div>
+    </div>
+
+    <canvas id="fireworksCanvas"></canvas>
+
+<script>
+    // --- TIMING CONFIGURATION ---
+    const delayStart = 500;   // Wait 0.5s before moving
+    const travelTime = 2500;  // Takes 2.5s to meet (must match CSS transition)
+    const fadeTime = 500;     // Time for individual images to fade out / combined image to fade in
+
+    window.onload = function() {
+        // 1. Start Moving Images
+        setTimeout(() => {
+            document.getElementById('imgLeft').classList.add('meet-center-left');
+            document.getElementById('imgRight').classList.add('meet-center-right');
+        }, delayStart);
+
+        // 2. Trigger Collision, Fade Images, Show Combined, then Show Button
+        setTimeout(() => {
+            // A. Trigger Shockwave Flash
+            document.getElementById('shockwave').classList.add('boom');
+
+            // B. Fade out individual images
+            document.getElementById('imgLeft').classList.add('fade-out');
+            document.getElementById('imgRight').classList.add('fade-out');
+
+            // C. Show combined image
+            const combinedImg = document.getElementById('combined-image');
+            combinedImg.classList.add('show');
+            
+            // D. Reveal Heart Button and Text (after a slight delay for combined image to appear)
+            setTimeout(() => {
+                const btn = document.getElementById('heart-btn');
+                btn.style.transform = "rotate(-45deg) scale(1)";
+                btn.classList.add('pulse-active');
+                
+                document.getElementById('click-text').style.opacity = "1";
+            }, fadeTime - 200); // Appear slightly before the fade is complete
+            
+
+        }, delayStart + travelTime); // Trigger exactly when they meet
+    };
+
+    function startFireworks() {
+        // 1. Fade out Intro and move combined image to final stage
+        const intro = document.getElementById('intro-container');
+        intro.style.opacity = '0';
+
+        const combinedImg = document.getElementById('combined-image');
+        combinedImg.classList.remove('show'); // Remove initial show class
+        combinedImg.classList.add('final-stage'); // Apply fixed, faded style
+
+        setTimeout(() => { intro.style.display = 'none'; }, 1000);
+
+        // 2. Fade in Canvas
+        const c = document.getElementById('fireworksCanvas');
+        c.style.opacity = '1';
+        
+        resizeCanvas();
+        animate();
+    }
+
+    // --- FIREWORKS ENGINE (Same as before) ---
+    const canvas = document.getElementById('fireworksCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    function resizeCanvas() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // Physics
+    const gravity = 0.03;       
+    const friction = 0.98;       
+    const particleCount = 200;   
+    const trailLength = 0.2;     
+
+    function random(min, max) { return Math.random() * (max - min) + min; }
+    function randomColor() {
+        const colors = ['#ff4d4d', '#ffaf40', '#32ff7e', '#18dcff', '#7d5fff', '#ffcccc'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.alpha = 1;
+            const angle = random(0, Math.PI * 2);
+            const speed = random(1, 8); 
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.decay = random(0.005, 0.02);
+        }
+        update() {
+            this.vx *= friction;
+            this.vy *= friction;
+            this.vy += gravity;
+            this.x += this.vx;
+            this.y += this.vy;
+            this.alpha -= this.decay;
+        }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = this.alpha;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    class Firework {
+        constructor() {
+            this.x = random(width * 0.2, width * 0.8);
+            this.y = height;
+            this.targetY = random(height * 0.1, height * 0.4);
+            this.speed = 3;
+            this.acceleration = 1.05;
+            this.hue = randomColor();
+            this.exploded = false;
+        }
+        update(index) {
+            if (!this.exploded) {
+                this.y -= this.speed;
+                this.speed *= this.acceleration;
+                if (this.y <= this.targetY) {
+                    this.exploded = true;
+                    createParticles(this.x, this.y, this.hue);
+                    fireworks.splice(index, 1);
+                }
+            }
+        }
+        draw() {
+            if (!this.exploded) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = this.hue;
+                ctx.fill();
+            }
+        }
+    }
+
+    let fireworks = [];
+    let particles = [];
+
+    function createParticles(x, y, color) {
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle(x, y, color));
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        ctx.fillStyle = `rgba(0, 0, 0, ${trailLength})`;
+        ctx.fillRect(0, 0, width, height);
+
+        if (Math.random() < 0.03) { 
+            fireworks.push(new Firework());
+        }
+
+        for (let i = 0; i < fireworks.length; i++) {
+            fireworks[i].update(i);
+            if(fireworks[i]) fireworks[i].draw();
+        }
+
+        for (let i = 0; i < particles.length; i++) {
+            particles[i].update();
+            particles[i].draw();
+            if (particles[i].alpha <= 0) {
+                particles.splice(i, 1);
+                i--;
+            }
+        }
+    }
+</script>
+</body>
+</html>
