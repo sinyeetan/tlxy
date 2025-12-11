@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Snow Mountain — Snowing Anime</title>
+  <style>
+    /* Reset */
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body,#app{height:100%}
+
+    /* Background */
+    body{
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: #0b1221 url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1950&q=80') center/cover fixed no-repeat;
+      overflow:hidden;
+      color:#fff;
+    }
+
+    /* dim overlay to make foreground pop */
+    .overlay{
+      position:fixed;inset:0;background:linear-gradient(to bottom, rgba(3,10,20,0.35), rgba(2,8,15,0.6));pointer-events:none;
+    }
+
+    /* Canvas covers full screen for snow animation */
+    canvas#snowCanvas{
+      position:fixed;inset:0;width:100%;height:100%;z-index:2;display:block;
+    }
+
+    /* Foreground frame for UI / character */
+    .ui{
+      position:relative;z-index:3;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:36px;
+      pointer-events:none;
+    }
+
+    /* Character container (anime style) */
+    .character{
+      width:260px;max-width:28vw;min-width:160px;align-self:flex-end;pointer-events:auto;cursor:pointer;
+      transform-origin:center bottom;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.6));
+      transition:transform .35s ease;
+    }
+    .character:hover{transform:translateY(-6px) scale(1.02)}
+
+    /* Caption */
+    .caption{
+      position:fixed;left:24px;top:24px;z-index:4;background:rgba(0,0,0,0.25);backdrop-filter:blur(6px);
+      padding:12px 16px;border-radius:12px;font-size:14px;color:#e6f0ff;box-shadow:0 6px 20px rgba(3,8,20,0.5)
+    }
+
+    /* subtle mountains vignette */
+    .vignette{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at 50% 10%, rgba(255,255,255,0.02), rgba(0,0,0,0.6) 40%);pointer-events:none}
+
+    /* Responsive tweaks */
+    @media (max-width:600px){.character{width:36vw}}
+  </style>
+</head>
+<body>
+  <div class="overlay"></div>
+  <div class="vignette"></div>
+  <canvas id="snowCanvas"></canvas>
+
+  <div class="ui">
+    <!-- Inline SVG anime-style character (original simple vector) -->
+    <svg class="character" viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" aria-label="anime character">
+      <!-- soft background shape -->
+      <defs>
+        <linearGradient id="g1" x1="0" x2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.08"/>
+          <stop offset="1" stop-color="#fff" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <g transform="translate(10,8)">
+        <!-- cape/background glow -->
+        <ellipse cx="140" cy="320" rx="120" ry="36" fill="url(#g1)"/>
+        <!-- body -->
+        <path d="M95 280 C90 230 110 160 150 160 C190 160 210 230 205 280 Z" fill="#0b1221" stroke="#9bb7ff" stroke-opacity="0.18"/>
+        <!-- hair -->
+        <path d="M60 120 C70 40 140 20 190 70 C210 90 210 130 200 150 C180 190 120 180 100 160 C80 140 62 130 60 120 Z" fill="#1b2a4a"/>
+        <!-- face -->
+        <ellipse cx="140" cy="120" rx="36" ry="42" fill="#ffeedd"/>
+        <!-- eyes (simple anime look) -->
+        <g fill="#123" transform="translate(0,2)">
+          <ellipse cx="125" cy="120" rx="8" ry="6"/>
+          <ellipse cx="155" cy="120" rx="8" ry="6"/>
+        </g>
+        <!-- blush -->
+        <ellipse cx="118" cy="135" rx="6" ry="3" fill="#f2a6b7" opacity="0.7"/>
+        <ellipse cx="162" cy="135" rx="6" ry="3" fill="#f2a6b7" opacity="0.7"/>
+        <!-- scarf -->
+        <path d="M92 160 C110 170 170 170 210 160 C200 180 140 200 100 190 Z" fill="#8fb8ff"/>
+        <!-- subtle snow on shoulders -->
+        <path d="M88 200 C110 188 170 188 210 200" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-opacity="0.85"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="caption">Snow Mountain — gentle snow animation. Click the character to toggle wind.</div>
+
+  <script>
+    /* Snow animation on canvas with parallax and gentle twinkle.
+       Click the character (SVG) to toggle wind direction/speed.
+    */
+
+    const canvas = document.getElementById('snowCanvas');
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width = innerWidth;
+    let H = canvas.height = innerHeight;
+
+    window.addEventListener('resize', ()=>{
+      W = canvas.width = innerWidth;
+      H = canvas.height = innerHeight;
+    });
+
+    // snowflake class
+    class Snowflake {
+      constructor(){
+        this.reset(true);
+      }
+      reset(init=false){
+        this.x = Math.random()*W;
+        this.y = init ? Math.random()*H : -20 - Math.random()*H*0.2;
+        this.size = (Math.random()*3 + 1) * (Math.random()<0.07?2.2:1);
+        this.speed = (Math.random()*0.6 + 0.2) * (1 + this.size/3);
+        this.wind = 0; // overridden by global
+        this.opacity = Math.random()*0.6 + 0.25;
+        this.phase = Math.random()*Math.PI*2;
+        this.drift = Math.random()*0.6 - 0.3;
+      }
+      update(dt, wind){
+        this.y += this.speed * dt;
+        this.x += (this.drift + wind*0.2) * dt * (1 + this.size/4);
+        this.phase += 0.01 * (0.5 + this.size*0.1);
+        // small horizontal oscillation
+        this.x += Math.sin(this.phase) * 0.4 * this.size;
+        if(this.y > H + 40 || this.x < -80 || this.x > W + 80){
+          this.reset(false);
+        }
+      }
+      draw(ctx){
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        // soft glow
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size*4);
+        grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+        grad.addColorStop(0.5, 'rgba(220,235,255,0.55)');
+        grad.addColorStop(1, 'rgba(200,220,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size*2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // create flakes
+    const flakes = [];
+    const FL_COUNT = Math.min(900, Math.floor(window.innerWidth * window.innerHeight / 8000));
+    for(let i=0;i<FL_COUNT;i++) flakes.push(new Snowflake());
+
+    let last = performance.now();
+    let wind = 0; // positive = right
+    let targetWind = 0;
+    let mouseX = W/2, mouseY = H/2;
+
+    // subtle parallax based on mouse
+    window.addEventListener('mousemove', e=>{
+      mouseX = e.clientX; mouseY = e.clientY;
+      targetWind = (mouseX - W/2) / (W/2) * 0.6; // -0.6..0.6
+    });
+
+    // click character toggles a gust
+    const char = document.querySelector('.character');
+    let gustOn = false;
+    char.addEventListener('click', ()=>{
+      gustOn = !gustOn;
+      targetWind = gustOn ? (Math.random()*1.5 + 0.6)*(Math.random()<0.5?-1:1) : 0;
+      char.style.transform = gustOn ? 'translateY(-10px) scale(1.04)' : '';
+    });
+
+    function step(now){
+      const dt = Math.min(1, (now - last) / 16.666); // ~frames
+      last = now;
+
+      // smooth wind
+      wind += (targetWind - wind) * 0.03 * dt * 10;
+
+      // clear with slight motion blur trail
+      ctx.clearRect(0,0,W,H);
+
+      // optional ambient glow layer
+      ctx.fillStyle = 'rgba(6,10,20,0.12)';
+      ctx.fillRect(0,0,W,H);
+
+      // draw flakes
+      for(let f of flakes){
+        f.update(dt, wind);
+        f.draw(ctx);
+      }
+
+      // twinkling distant snow (small points)
+      for(let i=0;i<40;i++){
+        const x = (i*1237 % W) + (Math.sin(now/2000 + i) * 30);
+        const y = (i*907 % H) + (Math.cos(now/1700 + i) * 20);
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect((x+now*0.02)%W, (y+now*0.01)%H, 1.2,1.2);
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    requestAnimationFrame(step);
+
+    // small performance-friendly pause if tab not focused
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.hidden) cancelAnimationFrame(step);
+      else { last = performance.now(); requestAnimationFrame(step); }
+    });
+
+    // Accessibility: let user toggle animation with keyboard (press 'S')
+    let running = true;
+    document.addEventListener('keydown', (e)=>{
+      if(e.key.toLowerCase() === 's'){
+        running = !running;
+        if(!running) {
+          ctx.clearRect(0,0,W,H);
+        } else {
+          last = performance.now(); requestAnimationFrame(step);
+        }
+      }
+    });
+
+    // hint: allow user to swap background by dropping image onto page
+    window.addEventListener('dragover', e=>{ e.preventDefault(); });
+    window.addEventListener('drop', e=>{
+      e.preventDefault();
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if(file && file.type.startsWith('image/')){
+        const url = URL.createObjectURL(file);
+        document.body.style.backgroundImage = `url('${url}')`;
+      }
+    });
+  </script>
+</body>
+</html>
