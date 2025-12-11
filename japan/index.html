@@ -61,40 +61,7 @@
 
   <div class="ui">
     <!-- Inline SVG anime-style character (original simple vector) -->
-    <svg class="character" viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" aria-label="anime character">
-      <!-- soft background shape -->
-      <defs>
-        <linearGradient id="g1" x1="0" x2="1">
-          <stop offset="0" stop-color="#fff" stop-opacity="0.08"/>
-          <stop offset="1" stop-color="#fff" stop-opacity="0.02"/>
-        </linearGradient>
-      </defs>
-      <g transform="translate(10,8)">
-        <!-- cape/background glow -->
-        <ellipse cx="140" cy="320" rx="120" ry="36" fill="url(#g1)"/>
-        <!-- body -->
-        <path d="M95 280 C90 230 110 160 150 160 C190 160 210 230 205 280 Z" fill="#0b1221" stroke="#9bb7ff" stroke-opacity="0.18"/>
-        <!-- hair -->
-        <path d="M60 120 C70 40 140 20 190 70 C210 90 210 130 200 150 C180 190 120 180 100 160 C80 140 62 130 60 120 Z" fill="#1b2a4a"/>
-        <!-- face -->
-        <ellipse cx="140" cy="120" rx="36" ry="42" fill="#ffeedd"/>
-        <!-- eyes (simple anime look) -->
-        <g fill="#123" transform="translate(0,2)">
-          <ellipse cx="125" cy="120" rx="8" ry="6"/>
-          <ellipse cx="155" cy="120" rx="8" ry="6"/>
-        </g>
-        <!-- blush -->
-        <ellipse cx="118" cy="135" rx="6" ry="3" fill="#f2a6b7" opacity="0.7"/>
-        <ellipse cx="162" cy="135" rx="6" ry="3" fill="#f2a6b7" opacity="0.7"/>
-        <!-- scarf -->
-        <path d="M92 160 C110 170 170 170 210 160 C200 180 140 200 100 190 Z" fill="#8fb8ff"/>
-        <!-- subtle snow on shoulders -->
-        <path d="M88 200 C110 188 170 188 210 200" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-opacity="0.85"/>
-      </g>
-    </svg>
   </div>
-
-  <div class="caption">Snow Mountain — gentle snow animation. Click the character to toggle wind.</div>
 
   <script>
     /* Snow animation on canvas with parallax and gentle twinkle.
